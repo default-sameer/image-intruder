@@ -21,19 +21,21 @@ export default function Home() {
   const [roomId, setRoomId] = useState("");
   const [username, setUsername] = useState("");
   const router = useRouter();
-  const { setPlayerName, connected, connecting } = useSocket();
+  const { setPlayerName, connected, connecting, createRoom, joinRoom } =
+    useSocket();
 
-  const createRoom = () => {
+  const handleCreateRoom = () => {
     if (!username.trim()) {
       toast.error("Please enter a username");
       return;
     }
     const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     setPlayerName(username);
+    createRoom(username, newRoomId);
     router.push(`/${newRoomId}`);
   };
 
-  const joinRoom = () => {
+  const handleJoinRoom = () => {
     if (!username.trim()) {
       toast.error("Please enter a username");
       return;
@@ -44,15 +46,14 @@ export default function Home() {
       return;
     }
     setPlayerName(username);
+    joinRoom(username, roomId);
     router.push(`/${roomId}`);
   };
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-slate-100">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">
-            Multiplayer Rooms
-          </CardTitle>
+          <CardTitle className="text-2xl font-bold">Image Intruder</CardTitle>
           <CardDescription>
             Create a new room or join an existing one
           </CardDescription>
@@ -96,7 +97,7 @@ export default function Home() {
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
           <Button
-            onClick={createRoom}
+            onClick={handleCreateRoom}
             className="w-full bg-green-400 cursor-pointer disabled:cursor-not-allowed"
             variant="outline"
             disabled={connecting || !connected}
@@ -105,7 +106,7 @@ export default function Home() {
             Create New Room
           </Button>
           <Button
-            onClick={joinRoom}
+            onClick={handleJoinRoom}
             className="w-full cursor-pointer disabled:cursor-not-allowed"
             variant="outline"
             disabled={connecting || !connected}
