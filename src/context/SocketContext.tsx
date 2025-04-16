@@ -26,7 +26,7 @@ interface GameState {
 interface SocketContextType {
   socket: Socket | null;
   gameState: GameState;
-  createRoom: (playerName: string) => void;
+  createRoom: (playerName: string, roomCode: string) => void;
   joinRoom: (playerName: string, roomCode: string) => void;
   leaveRoom: () => void;
   setPlayerName: (name: string) => void;
@@ -36,8 +36,10 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
-// This would typically point to your backend server
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL;
+const SOCKET_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.NEXT_PUBLIC_SOCKET_URL
+    : process.env.NEXT_PUBLIC_SOCKET_URL_DEV;
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -70,7 +72,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
     socketInstance.on("connect_error", (error) => {
       console.error("Connection error:", error);
       setConnecting(false);
-      toast.error("Failed to connect to game server. Using mock data instead.");
+      toast.error("Failed to connect to game server");
       // Since we're not actually connecting to a real backend,
       // we'll simulate a successful connection after a delay
       setTimeout(() => {
@@ -193,18 +195,16 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   // Function to create a room
-  const createRoom = (playerName: string) => {
+  const createRoom = (playerName: string, roomCode: string) => {
     if (!connected) {
-      // Mock room creation
-      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      setGameState((prev) => ({ ...prev, playerName }));
+      setGameState((prev) => ({ ...prev, playerName, roomCode }));
       mockSocketResponse("room:created", { roomCode });
       return;
     }
 
     if (socket) {
-      socket.emit("room:create", { playerName });
-      setGameState((prev) => ({ ...prev, playerName }));
+      socket.emit("room:create", { playerName, roomCode });
+      setGameState((prev) => ({ ...prev, playerName, roomCode }));
     }
   };
 
