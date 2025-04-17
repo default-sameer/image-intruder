@@ -31,7 +31,9 @@ export default function RootLayout({
       >
         <SocketProvider>
           <Toaster position="top-center" richColors closeButton />
-          {children}
+          <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-slate-100">
+            {children}
+          </main>
         </SocketProvider>
       </body>
     </html>
