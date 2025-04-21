@@ -12,7 +12,9 @@ import {
 
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSocket } from "@/context/SocketContext";
+import { generateRoomId } from "@/utils/room-generator";
 import { Plus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -30,7 +32,8 @@ export default function Home() {
       toast.error("Please enter a username");
       return;
     }
-    const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newRoomId = generateRoomId();
+
     setPlayerName(username);
     createRoom(username, newRoomId);
     router.push(`/${newRoomId}`);
@@ -51,12 +54,10 @@ export default function Home() {
     router.push(`/${roomId}`);
   };
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">Image Intruder</CardTitle>
-        <CardDescription>
-          Create a new room or join an existing one
-        </CardDescription>
+        <CardDescription>Create or Join an existing one</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -71,50 +72,62 @@ export default function Home() {
               id="username"
               placeholder="Enter your username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.toLocaleLowerCase())}
               className="outline-0 focus:ring-0 focus-visible:ring-0"
             />
           )}
         </div>
-
-        <div className="space-y-2">
-          <label htmlFor="roomId" className="text-sm font-medium">
-            Room ID (for joining)
-          </label>
-          {connecting ? (
-            <Skeleton className="bg-slate-200 h-9 w-full"></Skeleton>
-          ) : (
-            <Input
+        <Tabs defaultValue="create" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="create" className="cursor-pointer">
+              Create Room
+            </TabsTrigger>
+            <TabsTrigger value="join" className="cursor-pointer">
+              Join Room
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="create">
+            <Button
+              onClick={handleCreateRoom}
+              className="w-full bg-green-400 cursor-pointer disabled:cursor-not-allowed"
+              variant="outline"
               disabled={connecting || !connected}
-              id="roomId"
-              placeholder="Enter room ID to join"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              className="outline-0 focus:ring-0 focus-visible:ring-0"
-            />
-          )}
-        </div>
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create New Room
+            </Button>
+          </TabsContent>
+          <TabsContent value="join" className="space-y-2">
+            <div className="space-y-2">
+              <label htmlFor="roomId" className="text-sm font-medium">
+                Room ID (for joining)
+              </label>
+              {connecting ? (
+                <Skeleton className="bg-slate-200 h-9 w-full"></Skeleton>
+              ) : (
+                <Input
+                  disabled={connecting || !connected}
+                  id="roomId"
+                  placeholder="Enter room ID to join"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                  className="outline-0 focus:ring-0 focus-visible:ring-0"
+                />
+              )}
+            </div>
+            <Button
+              onClick={handleJoinRoom}
+              className="w-full cursor-pointer disabled:cursor-not-allowed"
+              variant="outline"
+              disabled={connecting || !connected}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Join Existing Room
+            </Button>
+          </TabsContent>
+        </Tabs>
       </CardContent>
-      <CardFooter className="flex flex-col space-y-2">
-        <Button
-          onClick={handleCreateRoom}
-          className="w-full bg-green-400 cursor-pointer disabled:cursor-not-allowed"
-          variant="outline"
-          disabled={connecting || !connected}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Create New Room
-        </Button>
-        <Button
-          onClick={handleJoinRoom}
-          className="w-full cursor-pointer disabled:cursor-not-allowed"
-          variant="outline"
-          disabled={connecting || !connected}
-        >
-          <Users className="mr-2 h-4 w-4" />
-          Join Existing Room
-        </Button>
-      </CardFooter>
+      <CardFooter className="flex flex-col space-y-2"></CardFooter>
     </Card>
   );
 }
