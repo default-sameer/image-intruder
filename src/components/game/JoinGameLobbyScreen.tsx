@@ -12,22 +12,29 @@ import { useSocket } from "@/context/SocketContext";
 import { Skeleton } from "../ui/skeleton";
 import { Input } from "../ui/input";
 import { toast } from "sonner";
-import { useParams } from "next/navigation";
+import { redirect, useParams } from "next/navigation";
+import { useRoomList } from "@/api/room";
 
 const JoinGameLobbyScreen = () => {
   const [username, setUsername] = useState("");
   const { connected, connecting, joinRoom, setPlayerName } = useSocket();
 
+  const { data } = useRoomList();
+
   const params = useParams();
 
   const roomId = params.id as string;
 
+  const ifRoomExist = (data?.rooms || []).some((room) => room.code === roomId);
   const handleJoinRoom = () => {
     if (!username.trim()) {
       toast.error("Please enter a username");
       return;
     }
-
+    if (!ifRoomExist) {
+      toast.error("Room does not exist");
+      redirect("/");
+    }
     setPlayerName(username);
     joinRoom(username, roomId);
   };

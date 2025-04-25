@@ -1,5 +1,6 @@
 "use client";
 
+import { useRoomList } from "@/api/room";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,29 +15,38 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSocket } from "@/context/SocketContext";
-import { generateRoomId } from "@/utils/room-generator";
 import { Plus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function Home() {
   const [roomId, setRoomId] = useState("");
   const [username, setUsername] = useState("");
+  const [type, setType] = useState<"create" | "join">("create");
   const router = useRouter();
-  const { setPlayerName, connected, connecting, createRoom, joinRoom } =
-    useSocket();
+  const {
+    setPlayerName,
+    connected,
+    connecting,
+    createRoom,
+    joinRoom,
+    gameState: { roomCode },
+    loading,
+  } = useSocket();
+
+  const { data } = useRoomList();
+
+  const ifRoomExist = (data?.rooms || []).some((room) => room.code === roomId);
 
   const handleCreateRoom = () => {
     if (!username.trim()) {
       toast.error("Please enter a username");
       return;
     }
-    const newRoomId = generateRoomId();
 
     setPlayerName(username);
-    createRoom(username, newRoomId);
-    router.push(`/${newRoomId}`);
+    createRoom(username);
   };
 
   const handleJoinRoom = () => {
@@ -51,8 +61,18 @@ export default function Home() {
     }
     setPlayerName(username);
     joinRoom(username, roomId);
+    if (!ifRoomExist) return;
     router.push(`/${roomId}`);
   };
+
+  useEffect(() => {
+    if (!loading && roomCode && type === "create") {
+      console.log("i am called");
+      router.push(`/${roomCode}`);
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomCode, loading]);
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
@@ -77,7 +97,11 @@ export default function Home() {
             />
           )}
         </div>
-        <Tabs defaultValue="create" className="w-full">
+        <Tabs
+          defaultValue="create"
+          className="w-full"
+          onValueChange={(value) => setType(value as "create" | "join")}
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="create" className="cursor-pointer">
               Create Room
@@ -91,10 +115,10 @@ export default function Home() {
               onClick={handleCreateRoom}
               className="w-full bg-green-400 cursor-pointer disabled:cursor-not-allowed"
               variant="outline"
-              disabled={connecting || !connected}
+              disabled={connecting || !connected || loading}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Create New Room
+              {loading ? "Creating..." : "Create New Room"}
             </Button>
           </TabsContent>
           <TabsContent value="join" className="space-y-2">
@@ -122,7 +146,7 @@ export default function Home() {
               disabled={connecting || !connected}
             >
               <Users className="mr-2 h-4 w-4" />
-              Join Existing Room
+              {loading ? "Joining..." : "Join Existing Room"}
             </Button>
           </TabsContent>
         </Tabs>

@@ -25,12 +25,13 @@ interface GameState {
 interface SocketContextType {
   socket: Socket | null;
   gameState: GameState;
-  createRoom: (name: string, roomCode: string) => void;
+  createRoom: (name: string) => void;
   joinRoom: (name: string, roomCode: string) => void;
   leaveRoom: () => void;
   setPlayerName: (name: string) => void;
   connected: boolean;
   connecting: boolean;
+  loading: boolean;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -46,6 +47,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [gameState, setGameState] = useState<GameState>({
     roomCode: null,
     isHost: false,
@@ -54,33 +56,38 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
   });
 
   useEffect(() => {
-    // Initialize socket connection
     const socketInstance = io(SOCKET_URL, {
       autoConnect: true,
       reconnection: true,
       transports: ["websocket", "polling"],
     });
 
+    const timeout = setTimeout(() => {
+      setLoading(false); // Prevent indefinite loading
+    }, 5000);
+
     socketInstance.on("connect", () => {
-      console.log("Connected to socket server");
+      console.log("✅ Connected to socket server");
       setConnected(true);
       setConnecting(false);
+      setLoading(false);
       toast.success("Connected to game server!");
     });
 
     socketInstance.on("connect_error", (error) => {
-      console.error("Connection error:", error);
+      console.error("❌ Connection error:", error);
       setConnecting(false);
+      setLoading(false);
       toast.error("Failed to connect to game server");
     });
 
     socketInstance.on("disconnect", () => {
-      console.log("Disconnected from socket server");
+      console.log("🔌 Disconnected from socket server");
       setConnected(false);
       toast.error("Disconnected from game server");
     });
 
-    // Room events
+    // Event listeners...
     socketInstance.on("roomCreated", (roomCode: string) => {
       setGameState((prev) => ({
         ...prev,
@@ -98,20 +105,20 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
       toast.success(`Joined room: ${roomCode}`);
     });
 
-    socketInstance.on("playerJoined", (data: { id: string; name: string }) => {
+    socketInstance.on("playerJoined", ({ id, name }) => {
       setGameState((prev) => ({
         ...prev,
-        players: [...prev.players, { id: data.id, name: data.name }],
+        players: [...prev.players, { id, name }],
       }));
-      toast(`${data.name} joined the room!`);
+      toast(`${name} joined the room!`);
     });
 
-    socketInstance.on("playerLeft", (data: { id: string; name: string }) => {
+    socketInstance.on("playerLeft", ({ id, name }) => {
       setGameState((prev) => ({
         ...prev,
-        players: prev.players.filter((p) => p.id !== data.id),
+        players: prev.players.filter((p) => p.id !== id),
       }));
-      toast(`${data.name} left the room`);
+      toast(`${name} left the room`);
     });
 
     socketInstance.on("playerList", (players: { [key: string]: string }) => {
@@ -131,62 +138,53 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
       }));
     });
 
-    socketInstance.on(
-      "errorMessage",
-      (error: { type: string; message: string }) => {
-        toast.error(error.message);
-      }
-    );
+    socketInstance.on("errorMessage", (error) => {
+      toast.error(error.message);
+    });
 
     setSocket(socketInstance);
 
     return () => {
+      clearTimeout(timeout);
       socketInstance.disconnect();
       setSocket(null);
     };
   }, []);
 
-  const createRoom = (name: string, roomCode: string) => {
-    if (!connected) {
-      return;
-    }
-
-    if (socket) {
-      socket.emit("createRoom", { name, roomCode });
-      setGameState((prev) => ({ ...prev, name, roomCode }));
-    }
+  const createRoom = (name: string) => {
+    if (!connected || !socket) return;
+    socket.emit("createRoom", { name });
+    setGameState((prev) => ({ ...prev, name }));
   };
 
   const joinRoom = (name: string, roomCode: string) => {
-    if (!connected) {
-      return;
-    }
-
-    if (socket) {
-      socket.emit("joinRoom", { name, roomCode });
-      setGameState((prev) => ({ ...prev, name, roomCode }));
-    }
+    if (!connected || !socket) return;
+    socket.emit("joinRoom", { name, roomCode });
+    setGameState((prev) => ({ ...prev, name, roomCode }));
   };
 
   const leaveRoom = () => {
-    if (!connected) {
-      return;
-    }
-
-    if (socket && gameState.roomCode) {
-      socket.emit("leaveRoom", { roomCode: gameState.roomCode });
-      setGameState({
-        roomCode: null,
-        isHost: false,
-        players: [],
-        name: gameState.name,
-      });
-    }
+    if (!connected || !socket || !gameState.roomCode) return;
+    socket.emit("leaveRoom", { roomCode: gameState.roomCode });
+    setGameState({
+      roomCode: null,
+      isHost: false,
+      players: [],
+      name: gameState.name,
+    });
   };
 
   const setPlayerName = (name: string) => {
     setGameState((prev) => ({ ...prev, name }));
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-lg">
+        Connecting to game server...
+      </div>
+    );
+  }
 
   return (
     <SocketContext.Provider
@@ -199,6 +197,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
         setPlayerName,
         connected,
         connecting,
+        loading,
       }}
     >
       {children}
@@ -206,7 +205,6 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
-// Custom hook to use the socket context
 export const useSocket = () => {
   const context = useContext(SocketContext);
   if (context === undefined) {
